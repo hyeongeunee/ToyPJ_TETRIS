@@ -1,3 +1,5 @@
+import BLOCKS from "./block.js"
+
 //DOM
 const playground = document.querySelector(".playground > ul");
 
@@ -11,20 +13,11 @@ let duration = 500;
 let downInterval;
 let tmpMovingItem;
 
-const BLOCKS = {
-    tree : [
-        [[2,1], [0,1], [1,0], [1,1]],
-        [],
-        [],
-        [],
-    ]
-}
-
 const movingItem = {
-    type : "tree",
-    direction : 0,
+    type : "",
+    direction : 2,
     top : 0,
-    left : 3,
+    left : 0,
 }
 
 init();
@@ -37,7 +30,7 @@ function init(){
     for (let i = 0; i < GAME_ROWS; i++) {
         prependNewLine();
     }
-    renderBlocks();
+    generateNewBlock();
 }
 
 function prependNewLine(){
@@ -50,14 +43,16 @@ function prependNewLine(){
     li.prepend(ul);
     playground.prepend(li);
 }
-function renderBlocks(){
+
+function renderBlocks(moveType=""){
     //변수에 바로 접근할 수 있도록 선언.
     const { type, direction, top, left } = tmpMovingItem;
     const movingBlocks = document.querySelectorAll(".moving");
     movingBlocks.forEach((moving) =>{
         moving.classList.remove(type, "moving");
     })
-    BLOCKS[type][direction].forEach(block=>{
+    // forEach 대신 some 사용 > 원하는 시점에 멈출 수 있게
+    BLOCKS[type][direction].some(block=>{
         const x = block[0] + left;
         const y = block[1] + top;
         const target = playground.childNodes[y] ? playground.childNodes[y].childNodes[0].childNodes[x] : null;
@@ -68,17 +63,67 @@ function renderBlocks(){
             tmpMovingItem = { ... movingItem }
             //콜스택 에러방지
             setTimeout(()=>{
-                renderBlocks()
+                renderBlocks();
+                if(moveType === "top"){
+                    seizeBlock();
+                }
             }, 0)
+            return true;
         }
     })
     movingItem.left = left;
     movingItem.top = top;
     movingItem.direction = direction;
 }
+
+function seizeBlock() {
+    const movingBlocks = document.querySelectorAll(".moving");
+    movingBlocks.forEach((moving) => {
+        moving.classList.remove("moving");
+        moving.classList.add("seized")
+    })
+    checkMatch()
+}
+function checkMatch(){
+
+    const childNodes = playground.childNodes;
+    childNodes.forEach(child=>{
+        let matched = true;
+        child.children[0].childNodes.forEach(li=>{
+            if(!li.classList.contains("seized")){
+                matched = false;
+            }
+        })
+        if(matched){
+            child.remove();
+            prependNewLine();
+        }
+    })
+
+    generateNewBlock();
+}
+
+function generateNewBlock(){
+
+    clearInterval(downInterval);
+    downInterval = setInterval(()=>{
+        moveBlock('top', 1)
+    }, duration)
+
+    const blockArray = Object.entries(BLOCKS);
+    const randomIndex = Math.floor(Math.random() * blockArray.length);
+    
+    movingItem.type = blockArray[randomIndex][0];
+    movingItem.top = 0;
+    movingItem.left = 3;
+    movingItem.direction = 0;
+    tmpMovingItem = {...movingItem};
+    renderBlocks();
+}
+
 //target 을 한 번 더 체크할 수 있는 함수
 function checkEmpty(target){
-    if(!target){
+    if(!target || target.classList.contains("seized")){
         return false;
     }
     return true;
@@ -86,7 +131,20 @@ function checkEmpty(target){
 
 function moveBlock(moveType, amount){
     tmpMovingItem[moveType] += amount;
-    renderBlocks();
+    renderBlocks(moveType)
+}
+
+function chageDirection(){
+    const direction = tmpMovingItem.direction;
+    direction === 3 ? tmpMovingItem.direction = 0 : tmpMovingItem.direction += 1;
+    renderBlocks()
+}
+
+function dropBlock() {
+    clearInterval(downInterval);
+    downInterval = setInterval(()=>{
+        moveBlock("top", 1)
+    }, 10)
 }
 
 //event handling
@@ -100,6 +158,12 @@ document.addEventListener("keydown", (e)=>{
             break;
         case 40:
             moveBlock("top", 1);
+            break;
+        case 38:
+            chageDirection();
+            break;
+        case 38:
+            dropBlock();
             break;
         default :
             break;
